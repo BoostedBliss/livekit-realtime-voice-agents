@@ -1,0 +1,7 @@
+{
+  "name": "LiveKit Realtime Voice Agent Studio",
+  "description": "An open-source ecosystem for voice agents with flexible STT/LLM/TTS pipelines, semantic turn detection, MCP tools, WebRTC clients, SIP telephony, and automated test judges.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
