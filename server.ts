@@ -145,7 +145,7 @@ app.post("/api/agent/chat", async (req, res) => {
     console.error("Agent chat error:", err);
     res.status(500).json({
       reply: "I encountered a minor processing delay. Could you please repeat that?",
-      error: err.message,
+      error: "An internal error occurred",
     });
   }
 });
