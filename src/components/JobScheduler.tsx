@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Server, 
   Cpu, 
@@ -16,6 +16,16 @@ import { INITIAL_WORKERS } from '../data/mockData';
 
 export const JobScheduler: React.FC = () => {
   const [workers, setWorkers] = useState<DispatchWorker[]>(INITIAL_WORKERS);
+
+  // ⚡ Bolt Optimization: Memoize the capacity calculations and consolidate two reduce passes
+  // into a single O(N) pass to prevent expensive recalculations on unrelated re-renders.
+  const { totalActiveRooms, totalMaxRooms } = useMemo(() => {
+    return workers.reduce((acc, w) => ({
+      totalActiveRooms: acc.totalActiveRooms + w.activeRooms,
+      totalMaxRooms: acc.totalMaxRooms + w.maxRooms,
+    }), { totalActiveRooms: 0, totalMaxRooms: 0 });
+  }, [workers]);
+
   const [roomName, setRoomName] = useState('call-center-vip-884');
   const [agentType, setAgentType] = useState('customer-support-agent');
   const [priority, setPriority] = useState<'normal' | 'high' | 'vip'>('high');
@@ -113,7 +123,7 @@ export const JobScheduler: React.FC = () => {
         <h3 className="text-xs font-bold text-zinc-800 uppercase tracking-wider mb-4 flex items-center justify-between">
           <span>Active Agent Worker Pool ({workers.length} nodes)</span>
           <span className="text-[11px] font-normal text-zinc-500 font-mono">
-            Total Capacity: {workers.reduce((acc, w) => acc + w.activeRooms, 0)} / {workers.reduce((acc, w) => acc + w.maxRooms, 0)} Rooms
+            Total Capacity: {totalActiveRooms} / {totalMaxRooms} Rooms
           </span>
         </h3>
 
