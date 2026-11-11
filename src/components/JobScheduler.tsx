@@ -60,13 +60,12 @@ export const JobScheduler: React.FC = () => {
 
   const handleDispatch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roomName) return;
+    if (!roomName || workers.length === 0) return;
 
-    // Pick worker with lowest load ratio
-    const eligibleWorkers = [...workers].sort(
-      (a, b) => a.activeRooms / a.maxRooms - b.activeRooms / b.maxRooms
+    // ⚡ Bolt Optimization: Replace O(n log n) sort with O(n) reduce to find worker with lowest load ratio.
+    const assignedWorker = workers.reduce((min, w) =>
+      (w.activeRooms / w.maxRooms) < (min.activeRooms / min.maxRooms) ? w : min
     );
-    const assignedWorker = eligibleWorkers[0];
 
     const newDispatch = {
       id: 'disp-' + Math.floor(Math.random() * 9000 + 1000),
