@@ -26,6 +26,70 @@ interface VoiceSandboxProps {
   onOpenTurnLab: () => void;
 }
 
+// ⚡ Bolt Optimization: Memoize individual chat messages to prevent O(N) re-renders
+// of the entire transcript when high-frequency state (like microphone audioLevel
+// or text input) changes in the parent VoiceSandbox component.
+const MemoizedChatMessage = React.memo(({ m }: { m: ChatMessage }) => {
+  const isUser = m.role === 'user';
+  return (
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 mb-1 px-1">
+        <span className="font-medium text-zinc-600">{isUser ? 'You (End User)' : 'Voice Agent'}</span>
+        <span>•</span>
+        <span>{m.timestamp}</span>
+        {m.interrupted && (
+          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+            Interrupted
+          </span>
+        )}
+      </div>
+
+      <div
+        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+          isUser
+            ? 'bg-zinc-900 text-white rounded-tr-xs shadow-xs'
+            : 'bg-zinc-100 text-zinc-800 rounded-tl-xs border border-zinc-200/80'
+        }`}
+      >
+        <p>{m.content}</p>
+
+        {/* Tool Call Chips if triggered */}
+        {m.toolCalls && m.toolCalls.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-zinc-200 space-y-1">
+            {m.toolCalls.map((t, idx) => (
+              <div key={idx} className="bg-white p-2 rounded border border-zinc-200 text-[11px]">
+                <div className="flex items-center gap-1.5 font-mono font-semibold text-purple-700">
+                  <Wrench className="w-3 h-3 text-purple-600" />
+                  <span>MCP Tool: {t.name}</span>
+                </div>
+                <div className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+                  args: {JSON.stringify(t.args)}
+                </div>
+                <div className="text-[10px] text-emerald-700 mt-0.5 font-mono bg-emerald-50 p-1 rounded">
+                  result: {t.result}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Latency badge on assistant message */}
+        {!isUser && m.metrics && (
+          <div className="mt-2 pt-1.5 border-t border-zinc-200/70 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+            <span className="flex items-center gap-1 text-emerald-700">
+              <Zap className="w-3 h-3 text-emerald-600" />
+              Roundtrip: {m.metrics.totalMs}ms
+            </span>
+            <span className="text-zinc-500">
+              LLM TTFT: {m.metrics.llmTtftMs}ms | TTS TTFB: {m.metrics.ttsTtfbMs}ms
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 export const VoiceSandbox: React.FC<VoiceSandboxProps> = ({
   pipeline,
   mcpServers,
@@ -527,69 +591,9 @@ export const VoiceSandbox: React.FC<VoiceSandboxProps> = ({
 
           {/* Transcript Scroll Area */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
-            {messages.map((m) => {
-              const isUser = m.role === 'user';
-              return (
-                <div
-                  key={m.id}
-                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
-                >
-                  <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 mb-1 px-1">
-                    <span className="font-medium text-zinc-600">{isUser ? 'You (End User)' : 'Voice Agent'}</span>
-                    <span>•</span>
-                    <span>{m.timestamp}</span>
-                    {m.interrupted && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                        Interrupted
-                      </span>
-                    )}
-                  </div>
-
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
-                      isUser
-                        ? 'bg-zinc-900 text-white rounded-tr-xs shadow-xs'
-                        : 'bg-zinc-100 text-zinc-800 rounded-tl-xs border border-zinc-200/80'
-                    }`}
-                  >
-                    <p>{m.content}</p>
-
-                    {/* Tool Call Chips if triggered */}
-                    {m.toolCalls && m.toolCalls.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-zinc-200 space-y-1">
-                        {m.toolCalls.map((t, idx) => (
-                          <div key={idx} className="bg-white p-2 rounded border border-zinc-200 text-[11px]">
-                            <div className="flex items-center gap-1.5 font-mono font-semibold text-purple-700">
-                              <Wrench className="w-3 h-3 text-purple-600" />
-                              <span>MCP Tool: {t.name}</span>
-                            </div>
-                            <div className="text-[10px] text-zinc-500 mt-0.5 font-mono">
-                              args: {JSON.stringify(t.args)}
-                            </div>
-                            <div className="text-[10px] text-emerald-700 mt-0.5 font-mono bg-emerald-50 p-1 rounded">
-                              result: {t.result}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Latency badge on assistant message */}
-                    {!isUser && m.metrics && (
-                      <div className="mt-2 pt-1.5 border-t border-zinc-200/70 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
-                        <span className="flex items-center gap-1 text-emerald-700">
-                          <Zap className="w-3 h-3 text-emerald-600" />
-                          Roundtrip: {m.metrics.totalMs}ms
-                        </span>
-                        <span className="text-zinc-500">
-                          LLM TTFT: {m.metrics.llmTtftMs}ms | TTS TTFB: {m.metrics.ttsTtfbMs}ms
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {messages.map((m) => (
+              <MemoizedChatMessage key={m.id} m={m} />
+            ))}
 
             {/* In-progress agent status badge */}
             {agentState !== 'listening' && (
